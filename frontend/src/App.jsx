@@ -12,6 +12,7 @@ import QueueBar from './components/shared/QueueBar';
 import MetadataDrawer from './components/shared/MetadataDrawer';
 import PresetManager from './components/shared/PresetManager';
 import ConnectionStatus from './components/ui/ConnectionStatus';
+import ToastContainer from './components/ui/ToastContainer';
 
 const App = () => {
   const ui = useUIStore();
@@ -119,6 +120,7 @@ const App = () => {
       </div>
 
       <QueueBar queue={queueStore.queue} selectedId={queueStore.selectedQueueId} onSelect={(id) => queueStore.selectJob(id)} onDelete={handleQueueDelete} />
+      <ToastContainer />
     </div>
   );
 };

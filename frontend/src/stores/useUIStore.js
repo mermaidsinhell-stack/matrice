@@ -30,6 +30,10 @@ const useUIStore = create((set) => ({
   comfyuiConnected: false,
   setComfyuiConnected: (v) => set({ comfyuiConnected: v }),
 
+  // WebSocket reconnecting status
+  wsReconnecting: false,
+  setWsReconnecting: (v) => set({ wsReconnecting: v }),
+
   // Active image prompting card (accordion)
   activeImageCard: null,
   setActiveImageCard: (card) => set((s) => ({

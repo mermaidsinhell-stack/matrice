@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Loader2, Hash, Lock, Download, Share2, Info, ScanFace } from 'lucide-react';
+import { Loader2, Hash, Lock, Download, Share2, Info, ScanFace, AlertCircle } from 'lucide-react';
 import useGenerationStore from '../../stores/useGenerationStore';
 import useUIStore from '../../stores/useUIStore';
 import useQueueStore from '../../stores/useQueueStore';
@@ -18,6 +18,7 @@ import HiresFixCard from './HiresFixCard';
 import { handleFileUploadToState } from '../../utils/imageUtils';
 import { clampFloat } from '../../utils/imageUtils';
 import { api } from '../../api';
+import useToastStore from '../../stores/useToastStore';
 
 const GenerateTab = () => {
   // --- Stores ---
@@ -66,9 +67,12 @@ const GenerateTab = () => {
         const result = await api.generate({ ...payload, seed: batchSeed, jobId });
         if (!result) {
           queueStore.failJob(jobId, 'No response from server');
+          useToastStore.getState().error('Generation Failed', 'No response from server');
         }
       } catch (err) {
-        queueStore.failJob(jobId, err.message || 'Failed to submit');
+        const msg = err.message || 'Failed to submit';
+        queueStore.failJob(jobId, msg);
+        useToastStore.getState().error('Generation Failed', msg);
       }
     }
   }, [gen, queueStore]);
@@ -222,6 +226,15 @@ const GenerateTab = () => {
             {activeViewItem && activeViewItem.status === 'complete' && activeViewItem.url && (
               <div className="relative w-full h-full animate-in fade-in duration-500">
                 <img src={activeViewItem.url} alt="Generated Art" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {activeViewItem && activeViewItem.status === 'error' && (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500">
+                <AlertCircle size={48} className="text-red-500" />
+                <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">Generation Failed</span>
+                <p className="font-geo-sans text-xs text-[#888] max-w-md text-center">{activeViewItem.errorMessage || 'An unknown error occurred.'}</p>
+                <button onClick={handleGenerate} className="bg-[#1A1917] text-[#EAE6D9] font-bold font-geo-sans uppercase tracking-widest text-xs px-6 py-2 hover:bg-[#E84E36] transition-colors">Try Again</button>
               </div>
             )}
           </div>

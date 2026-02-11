@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Upload, LayoutGrid, X, Maximize2, Brush, Sliders, Loader2 } from 'lucide-react';
+import { Upload, LayoutGrid, X, Maximize2, Brush, Sliders, Loader2, AlertCircle } from 'lucide-react';
 import useEditStore from '../../stores/useEditStore';
 import useGenerationStore from '../../stores/useGenerationStore';
 import useUIStore from '../../stores/useUIStore';
@@ -171,6 +171,14 @@ const EditTab = () => {
                   )}
                   {activeViewItem.status === 'complete' && activeViewItem.url && (
                     <img src={activeViewItem.url} alt="Final Edit" className="max-w-full max-h-full object-contain shadow-2xl animate-in zoom-in-95 absolute inset-0 m-auto z-30" />
+                  )}
+                  {activeViewItem.status === 'error' && (
+                    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500">
+                      <AlertCircle size={48} className="text-red-500" />
+                      <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">Generation Failed</span>
+                      <p className="font-geo-sans text-xs text-[#888] max-w-md text-center">{activeViewItem.errorMessage || 'An unknown error occurred.'}</p>
+                      <button onClick={handleGenerate} className="bg-[#1A1917] text-[#EAE6D9] font-bold font-geo-sans uppercase tracking-widest text-xs px-6 py-2 hover:bg-[#E84E36] transition-colors">Try Again</button>
+                    </div>
                   )}
                 </>
               )}

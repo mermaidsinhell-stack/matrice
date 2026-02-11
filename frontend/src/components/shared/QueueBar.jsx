@@ -29,7 +29,7 @@ const QueueBar = ({ queue, selectedId, onSelect, onDelete }) => {
                   </div>
                 </div>
               ) : item.status === 'error' ? (
-                <div className="w-full h-full bg-red-900/20 flex items-center justify-center border border-red-500"><X size={16} className="text-red-500" /></div>
+                <div className="w-full h-full bg-red-900/20 flex items-center justify-center border border-red-500" title={item.errorMessage || 'Generation failed'}><X size={16} className="text-red-500" /></div>
               ) : (
                 <div className="w-full h-full bg-[#222] flex items-center justify-center flex-col gap-1">
                   <Loader2 size={12} className="text-[#888] animate-spin-slow" />

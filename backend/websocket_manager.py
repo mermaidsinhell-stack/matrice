@@ -35,6 +35,7 @@ class WebSocketManager:
     def __init__(self):
         self.client_id = f"matrice-{uuid.uuid4().hex[:8]}"
         self.frontend_clients: list[WebSocket] = []
+        self._clients_lock = asyncio.Lock()
         self._comfyui_ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._session: Optional[aiohttp.ClientSession] = None
         self._listen_task: Optional[asyncio.Task] = None
@@ -49,28 +50,31 @@ class WebSocketManager:
 
     async def connect_client(self, websocket: WebSocket):
         await websocket.accept()
-        self.frontend_clients.append(websocket)
+        async with self._clients_lock:
+            self.frontend_clients.append(websocket)
         # Send current connection status
         await websocket.send_json({
             "type": "connection_status",
             "connected": self._connected,
         })
 
-    def disconnect_client(self, websocket: WebSocket):
-        if websocket in self.frontend_clients:
-            self.frontend_clients.remove(websocket)
+    async def disconnect_client(self, websocket: WebSocket):
+        async with self._clients_lock:
+            if websocket in self.frontend_clients:
+                self.frontend_clients.remove(websocket)
 
     async def broadcast(self, message: dict):
         """Send a JSON message to all connected frontend clients."""
-        disconnected = []
-        for client in self.frontend_clients:
-            try:
-                await client.send_json(message)
-            except Exception as e:
-                logger.debug("Failed to send to frontend client: %s", e)
-                disconnected.append(client)
-        for client in disconnected:
-            self.disconnect_client(client)
+        async with self._clients_lock:
+            disconnected = []
+            for client in self.frontend_clients:
+                try:
+                    await client.send_json(message)
+                except Exception as e:
+                    logger.debug("Failed to send to frontend client: %s", e)
+                    disconnected.append(client)
+            for client in disconnected:
+                self.frontend_clients.remove(client)
 
     # ── Prompt tracking ───────────────────────────────────────────────
 

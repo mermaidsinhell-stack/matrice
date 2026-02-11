@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import useQueueStore from '../stores/useQueueStore';
 import useUIStore from '../stores/useUIStore';
+import useToastStore from '../stores/useToastStore';
 
 // Use the page's host so Vite proxy (dev) and production both work
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -26,15 +27,23 @@ export default function useWebSocket() {
 
       ws.onopen = () => {
         setWsConnected(true);
+        useUIStore.getState().setWsReconnecting(false);
       };
 
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
           switch (msg.type) {
-            case 'connection_status':
+            case 'connection_status': {
+              const wasConnected = useUIStore.getState().comfyuiConnected;
               setComfyuiConnected(msg.connected);
+              if (msg.connected && !wasConnected) {
+                useToastStore.getState().success('Connected', 'ComfyUI is ready');
+              } else if (!msg.connected && wasConnected) {
+                useToastStore.getState().warning('Disconnected', 'ComfyUI connection lost');
+              }
               break;
+            }
             case 'progress':
               updateJobProgress(msg.jobId, msg.step, msg.totalSteps);
               break;
@@ -47,6 +56,7 @@ export default function useWebSocket() {
               break;
             case 'error':
               failJob(msg.jobId, msg.message);
+              useToastStore.getState().error('Generation Failed', msg.message || 'An error occurred during generation');
               break;
             case 'queue_status':
               // Could update UI with queue remaining count
@@ -62,6 +72,7 @@ export default function useWebSocket() {
       ws.onclose = () => {
         setWsConnected(false);
         setComfyuiConnected(false);
+        useUIStore.getState().setWsReconnecting(true);
         // Clear any existing timer before setting a new one
         if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
         reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY);

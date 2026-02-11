@@ -53,4 +53,4 @@ async def websocket_endpoint(websocket: WebSocket):
             # Frontend can send control messages if needed
             # For now, we just keep the connection alive
     except WebSocketDisconnect:
-        ws_manager.disconnect_client(websocket)
+        await ws_manager.disconnect_client(websocket)
