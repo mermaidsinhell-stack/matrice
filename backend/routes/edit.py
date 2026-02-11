@@ -37,6 +37,7 @@ class EditPayload(BaseModel):
     scheduler: str = "normal"
     seed: int = Field(-1, ge=-1, le=2147483647)
     denoise: float = Field(0.7, ge=0.0, le=1.0)
+    jobId: str = ""  # Optional frontend-assigned job ID for WS progress tracking
     loras: list[EditLoRAConfig] = Field(default_factory=list)
     # Upscale-specific
     upscaleModel: str = ""
@@ -58,7 +59,8 @@ async def edit(payload: EditPayload, request: Request):
     if not payload.image:
         raise HTTPException(status_code=400, detail="No image provided")
 
-    job_id = uuid.uuid4().hex[:12]
+    # Use frontend-assigned jobId if provided, otherwise generate one
+    job_id = payload.jobId or uuid.uuid4().hex[:12]
 
     try:
         # Build appropriate workflow based on mode

@@ -76,6 +76,7 @@ class GeneratePayload(BaseModel):
     clipSkip: int = Field(1, ge=-12, le=12)
     batchSize: int = Field(1, ge=1, le=16)
     performance: str = "Custom"
+    jobId: str = ""  # Optional frontend-assigned job ID for WS progress tracking
     loras: list[LoRAConfig] = Field(default_factory=list)
     hiresFix: HiresFixConfig = Field(default_factory=HiresFixConfig)
     img2img: Img2ImgConfig = Field(default_factory=Img2ImgConfig)
@@ -94,7 +95,8 @@ async def generate(payload: GeneratePayload, request: Request):
     if not payload.model:
         raise HTTPException(status_code=400, detail="No model selected")
 
-    job_id = uuid.uuid4().hex[:12]
+    # Use frontend-assigned jobId if provided, otherwise generate one
+    job_id = payload.jobId or uuid.uuid4().hex[:12]
 
     try:
         # Build workflow from payload

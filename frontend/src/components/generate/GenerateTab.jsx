@@ -61,11 +61,11 @@ const GenerateTab = () => {
         },
       });
 
-      // Submit to backend
+      // Submit to backend — send our jobId so WS progress events match
       try {
-        const result = await api.generate({ ...payload, seed: batchSeed });
-        if (result.jobId) {
-          // Map backend jobId to our queue item if needed
+        const result = await api.generate({ ...payload, seed: batchSeed, jobId });
+        if (!result) {
+          queueStore.failJob(jobId, 'No response from server');
         }
       } catch (err) {
         queueStore.failJob(jobId, err.message || 'Failed to submit');

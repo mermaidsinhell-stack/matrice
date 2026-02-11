@@ -26,19 +26,19 @@ const EditTab = () => {
 
   const activeViewItem = queueStore.getActiveViewItem();
 
-  // Model options for dropdowns
+  // Model options for dropdowns — CustomDropdown expects plain string arrays
   const modelOptions = modelStore.models.length > 0
-    ? modelStore.models.map((m) => ({ value: m, label: m }))
-    : [{ value: gen.model, label: gen.model }];
+    ? modelStore.models
+    : [gen.model];
   const samplers = modelStore.samplers.length > 0
-    ? modelStore.samplers.map((s) => ({ value: s, label: s }))
-    : [{ value: gen.sampler, label: gen.sampler }];
+    ? modelStore.samplers
+    : [gen.sampler];
   const schedulers = modelStore.schedulers.length > 0
-    ? modelStore.schedulers.map((s) => ({ value: s, label: s }))
-    : [{ value: gen.scheduler, label: gen.scheduler }];
+    ? modelStore.schedulers
+    : [gen.scheduler];
   const loraOptions = modelStore.loras.length > 0
-    ? [{ value: 'None', label: 'None' }, ...modelStore.loras.map((l) => ({ value: l, label: l }))]
-    : [{ value: 'None', label: 'None' }];
+    ? ['None', ...modelStore.loras]
+    : ['None'];
 
   // Device upload handler with scattering animation
   const handleDeviceUpload = useCallback((e) => {
@@ -75,9 +75,10 @@ const EditTab = () => {
     queueStore.selectJob(jobId);
 
     try {
-      const result = await api.edit(payload);
-      if (result.jobId) {
-        // Real backend — progress will come via WebSocket
+      // Send our jobId so WS progress events match our queue item
+      const result = await api.edit({ ...payload, jobId });
+      if (!result) {
+        queueStore.failJob(jobId, 'No response from server');
       }
     } catch {
       queueStore.failJob(jobId, 'Failed to submit edit job');
