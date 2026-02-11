@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Upload, LayoutGrid, X, Maximize2, Brush, Sliders } from 'lucide-react';
+import { Upload, LayoutGrid, X, Maximize2, Brush, Sliders, Loader2 } from 'lucide-react';
 import useEditStore from '../../stores/useEditStore';
 import useGenerationStore from '../../stores/useGenerationStore';
 import useUIStore from '../../stores/useUIStore';
@@ -152,8 +152,22 @@ const EditTab = () => {
               )}
               {activeViewItem && activeViewItem.status !== 'idle' && activeViewItem.status !== 'queued' && (
                 <>
-                  {activeViewItem.status === 'generating' && activeViewItem.previewUrl && (
-                    <img src={activeViewItem.previewUrl} alt="Generating..." className="max-w-full max-h-full object-contain transition-all duration-300 ease-out absolute inset-0 m-auto z-30" style={{ filter: `blur(${Math.max(0, 10 - (activeViewItem.currentStep / 2))}px)` }} />
+                  {activeViewItem.status === 'generating' && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center">
+                      {activeViewItem.previewUrl ? (
+                        <img src={activeViewItem.previewUrl} alt="Generating..." className="max-w-full max-h-full object-contain transition-all duration-300 ease-out" style={{ filter: `blur(${Math.max(0, 8 - (activeViewItem.progress / 12))}px)` }} />
+                      ) : (
+                        <div className="flex flex-col items-center gap-4">
+                          <Loader2 size={48} className="text-[#E84E36] animate-spin" />
+                          <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">
+                            Rendering... {activeViewItem.currentStep}/{activeViewItem.totalSteps}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/10">
+                        <div className="h-full bg-[#E84E36] transition-all duration-300 ease-out" style={{ width: `${activeViewItem.progress}%` }} />
+                      </div>
+                    </div>
                   )}
                   {activeViewItem.status === 'complete' && activeViewItem.url && (
                     <img src={activeViewItem.url} alt="Final Edit" className="max-w-full max-h-full object-contain shadow-2xl animate-in zoom-in-95 absolute inset-0 m-auto z-30" />

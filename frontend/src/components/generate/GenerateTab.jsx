@@ -200,9 +200,22 @@ const GenerateTab = () => {
               </div>
             )}
 
-            {activeViewItem && activeViewItem.status === 'generating' && activeViewItem.previewUrl && (
+            {activeViewItem && activeViewItem.status === 'generating' && (
               <div className="relative w-full h-full animate-in fade-in duration-500">
-                <img src={activeViewItem.previewUrl} alt="Generating..." className="w-full h-full object-cover transition-all duration-300 ease-out" style={{ filter: `blur(${Math.max(0, 10 - (activeViewItem.currentStep / 2))}px)` }} />
+                {activeViewItem.previewUrl ? (
+                  <img src={activeViewItem.previewUrl} alt="Generating..." className="w-full h-full object-cover transition-all duration-300 ease-out" style={{ filter: `blur(${Math.max(0, 8 - (activeViewItem.progress / 12))}px)` }} />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                    <Loader2 size={48} className="text-[#E84E36] animate-spin" />
+                    <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">
+                      Rendering... {activeViewItem.currentStep}/{activeViewItem.totalSteps}
+                    </span>
+                  </div>
+                )}
+                {/* Live progress overlay */}
+                <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/10">
+                  <div className="h-full bg-[#E84E36] transition-all duration-300 ease-out" style={{ width: `${activeViewItem.progress}%` }} />
+                </div>
               </div>
             )}
 

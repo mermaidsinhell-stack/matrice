@@ -229,21 +229,39 @@ class WebSocketManager:
 
     async def _handle_binary_message(self, data: bytes):
         """Parse ComfyUI binary preview images and forward as base64."""
-        if len(data) < 4:
+        if len(data) < 8:
             return
 
         # First 4 bytes: event type as uint32
         event_type = struct.unpack(">I", data[:4])[0]
 
         if event_type in (PREVIEW_IMAGE, PREVIEW_IMAGE_WITH_METADATA):
-            # Bytes 4+ are JPEG/PNG image data
+            # After the 4-byte event type, ComfyUI may include a format byte
+            # or additional header bytes before the actual image data.
+            # Scan for JPEG (0xFF 0xD8) or PNG (0x89 0x50) magic bytes.
             image_data = data[4:]
             if not image_data:
                 return
 
+            # Find image start — sometimes there's a format/quality byte prefix
+            offset = 0
+            for off in (0, 1, 2, 4, 8):
+                if off >= len(image_data):
+                    break
+                if image_data[off:off + 2] == b'\xff\xd8':  # JPEG
+                    offset = off
+                    break
+                if image_data[off:off + 4] == b'\x89PNG':  # PNG
+                    offset = off
+                    break
+
+            image_data = image_data[offset:]
+            if len(image_data) < 16:
+                return
+
             # Detect format
             content_type = "image/jpeg"
-            if image_data[:8] == b'\x89PNG\r\n\x1a\n':
+            if image_data[:4] == b'\x89PNG':
                 content_type = "image/png"
 
             image_b64 = base64.b64encode(image_data).decode("ascii")

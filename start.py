@@ -68,6 +68,7 @@ def start_comfyui(comfyui_path, port=8188):
             "--listen", "127.0.0.1",
             "--port", str(port),
             "--dont-print-server",
+            "--preview-method", "latent2rgb",
         ],
         cwd=comfyui_path,
         env=env,
