@@ -8,6 +8,8 @@ import uuid
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..bundled_loras import ensure_all_bundled_loras
+
 router = APIRouter(tags=["generate"])
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,16 @@ async def generate(payload: GeneratePayload, request: Request):
     # Use frontend-assigned jobId if provided, otherwise generate one
     job_id = payload.jobId or uuid.uuid4().hex[:12]
 
+    # Auto-download any missing bundled LoRAs (Flux turbo presets)
+    lora_names = [l.name for l in payload.loras if l.name]
+    if lora_names:
+        failed = await ensure_all_bundled_loras(lora_names, ws_manager, job_id)
+        if failed:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Failed to download required LoRA(s): {', '.join(failed)}. Check your internet connection.",
+            )
+
     try:
         # Build workflow from payload
         from ..workflows.txt2img import build_txt2img_workflow
@@ -114,11 +126,26 @@ async def generate(payload: GeneratePayload, request: Request):
         raise HTTPException(status_code=502, detail=f"ComfyUI submission error: {str(e)}")
 
     prompt_id = result.get("prompt_id", "")
+    node_errors = result.get("node_errors", {})
+
+    # If ComfyUI rejected the prompt (validation failure), return an error
+    if not prompt_id and node_errors:
+        # Extract first meaningful error message
+        error_details = []
+        for node_id, err_info in node_errors.items():
+            if isinstance(err_info, str):
+                error_details.append(err_info)
+            elif isinstance(err_info, dict):
+                for err in err_info.get("errors", []):
+                    error_details.append(err.get("message", "") + ": " + err.get("details", ""))
+        detail_msg = "; ".join(error_details) if error_details else "ComfyUI rejected the prompt"
+        raise HTTPException(status_code=502, detail=detail_msg)
+
     if prompt_id:
         ws_manager.register_prompt(prompt_id, job_id)
 
     return {
         "jobId": job_id,
         "promptId": prompt_id,
-        "nodeErrors": result.get("node_errors", {}),
+        "nodeErrors": node_errors,
     }

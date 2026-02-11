@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, AlertCircle, Check } from 'lucide-react';
+import { Loader2, AlertCircle, Check, Download } from 'lucide-react';
 
 const GenerationStatusStrip = ({ item, onRetry }) => {
   if (!item || item.status === 'idle') return null;
@@ -12,6 +12,25 @@ const GenerationStatusStrip = ({ item, onRetry }) => {
             <span className="font-geo-sans text-[10px] font-bold uppercase tracking-widest">In Queue</span>
           </div>
           <span className="font-serif-display italic text-sm text-[#1A1917]">Waiting for GPU...</span>
+        </div>
+      )}
+      {item.status === 'downloading' && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[#1A1917]">
+            <span className="font-geo-sans text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+              <Download size={14} className="animate-pulse text-[#E84E36]" /> Downloading
+            </span>
+            <span className="font-serif-display italic text-sm text-[#1A1917]">
+              {item.downloadFilename ? (item.downloadFilename.length > 30 ? item.downloadFilename.slice(0, 30) + '...' : item.downloadFilename) : ''}
+              {item.downloadSizeLabel ? ` (${item.downloadSizeLabel})` : ''}
+            </span>
+          </div>
+          <div className="w-full h-1 bg-[#F5F5F5] overflow-hidden">
+            <div className="h-full bg-[#E84E36] transition-all duration-300 ease-out" style={{ width: `${item.downloadProgress || 0}%` }} />
+          </div>
+          <div className="text-right">
+            <span className="font-mono text-xs text-[#888]">{Math.round(item.downloadProgress || 0)}%</span>
+          </div>
         </div>
       )}
       {item.status === 'generating' && (

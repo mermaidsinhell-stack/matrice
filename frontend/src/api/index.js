@@ -2,19 +2,38 @@ const API_BASE = '/api';
 
 /**
  * Shared fetch wrapper with proper error handling.
- * Returns null on network errors instead of silently swallowing.
+ * For GET requests: returns null on errors (graceful degradation).
+ * For POST/PUT/DELETE: throws with server error message so callers can show it.
  */
 async function safeFetch(url, options) {
+  const method = (options?.method || 'GET').toUpperCase();
+  const isMutating = method !== 'GET';
+
   try {
     const res = await fetch(url, options);
     if (!res.ok) {
       const errorBody = await res.text().catch(() => '');
       console.error(`API ${res.status} ${url}: ${errorBody}`);
+
+      // For mutating requests, throw so callers can show meaningful errors
+      if (isMutating) {
+        let detail = `Server error (${res.status})`;
+        try {
+          const parsed = JSON.parse(errorBody);
+          if (parsed.detail) detail = parsed.detail;
+        } catch { /* use default */ }
+        throw new Error(detail);
+      }
       return null;
     }
     return await res.json();
   } catch (err) {
+    // Re-throw errors from mutating requests
+    if (isMutating && err.message && !err.message.includes('fetch')) {
+      throw err;
+    }
     console.error(`API fetch error ${url}:`, err);
+    if (isMutating) throw err;
     return null;
   }
 }

@@ -17,6 +17,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import urllib.request
+import urllib.error
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 COMFYUI_DIR = os.path.join(ROOT, "comfyui")
@@ -25,6 +27,22 @@ BACKEND_DIR = os.path.join(ROOT, "backend")
 
 # ComfyUI repository
 COMFYUI_REPO = "https://github.com/comfyanonymous/ComfyUI.git"
+
+# Bundled LoRAs — auto-downloaded during install for Flux turbo presets
+BUNDLED_LORAS = [
+    {
+        "url": "https://huggingface.co/alimama-creative/FLUX.1-Turbo-Alpha/resolve/main/diffusion_pytorch_model.safetensors",
+        "filename": "flux1-turbo-alpha.safetensors",
+        "size_label": "~694 MB",
+        "description": "Flux Turbo Alpha (4-step generation)",
+    },
+    {
+        "url": "https://huggingface.co/ByteDance/Hyper-SD/resolve/main/Hyper-FLUX.1-dev-8steps-lora.safetensors",
+        "filename": "Hyper-FLUX.1-dev-8steps-lora.safetensors",
+        "size_label": "~1.4 GB",
+        "description": "Hyper-Flux 8-step (fast quality generation)",
+    },
+]
 
 # PyTorch install commands per GPU type
 PYTORCH_URLS = {
@@ -141,6 +159,79 @@ def install_comfyui(gpu_type):
     print_info(f"  GGUF models:  {os.path.join(COMFYUI_DIR, 'models', 'diffusion_models')}")
 
 
+def download_file(url, dest_path, description=""):
+    """Download a file with progress reporting. Skips if file already exists."""
+    if os.path.isfile(dest_path):
+        print_info(f"Already exists: {os.path.basename(dest_path)}")
+        return True
+
+    print_info(f"Downloading {description or os.path.basename(dest_path)}...")
+    print_info(f"  From: {url}")
+    print_info(f"  To:   {dest_path}")
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Matrice-Installer/1.0"})
+        with urllib.request.urlopen(req) as response:
+            total = int(response.headers.get("Content-Length", 0))
+            downloaded = 0
+            chunk_size = 1024 * 1024  # 1 MB chunks
+
+            # Download to temp file first, then rename (atomic-ish)
+            tmp_path = dest_path + ".tmp"
+            with open(tmp_path, "wb") as f:
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total > 0:
+                        pct = downloaded / total * 100
+                        mb_done = downloaded / (1024 * 1024)
+                        mb_total = total / (1024 * 1024)
+                        print(f"\r  [{pct:5.1f}%] {mb_done:.0f} / {mb_total:.0f} MB", end="", flush=True)
+                    else:
+                        mb_done = downloaded / (1024 * 1024)
+                        print(f"\r  {mb_done:.0f} MB downloaded", end="", flush=True)
+
+            print()  # newline after progress
+            os.replace(tmp_path, dest_path)
+            print_info(f"Downloaded: {os.path.basename(dest_path)}")
+            return True
+
+    except (urllib.error.URLError, OSError) as e:
+        print_info(f"Download failed: {e}")
+        # Clean up partial download
+        tmp_path = dest_path + ".tmp"
+        if os.path.isfile(tmp_path):
+            os.remove(tmp_path)
+        return False
+
+
+def install_bundled_loras():
+    """Download bundled LoRAs needed for Flux turbo presets."""
+    print_step("Downloading Bundled LoRAs (Flux Turbo Presets)")
+
+    loras_dir = os.path.join(COMFYUI_DIR, "models", "loras")
+    os.makedirs(loras_dir, exist_ok=True)
+
+    total = len(BUNDLED_LORAS)
+    success = 0
+    for i, lora in enumerate(BUNDLED_LORAS, 1):
+        print_info(f"[{i}/{total}] {lora['description']} ({lora['size_label']})")
+        dest = os.path.join(loras_dir, lora["filename"])
+        if download_file(lora["url"], dest, lora["description"]):
+            success += 1
+        else:
+            print_info(f"  Skipping — you can download it manually later.")
+
+    if success == total:
+        print_info("All bundled LoRAs installed!")
+    else:
+        print_info(f"{success}/{total} LoRAs installed. Missing ones will be")
+        print_info(f"downloaded automatically when you use Flux turbo presets.")
+
+
 def install_comfyui_gguf_node():
     """Install the ComfyUI-GGUF custom node for Flux GGUF support."""
     print_step("Installing ComfyUI-GGUF Custom Node")
@@ -245,6 +336,11 @@ def main():
         action="store_true",
         help="Skip ComfyUI-GGUF custom node installation",
     )
+    parser.add_argument(
+        "--skip-loras",
+        action="store_true",
+        help="Skip downloading bundled LoRAs (Flux turbo presets)",
+    )
     args = parser.parse_args()
 
     print("""
@@ -265,6 +361,8 @@ def main():
         install_comfyui(args.gpu)
         if not args.skip_gguf:
             install_comfyui_gguf_node()
+        if not args.skip_loras:
+            install_bundled_loras()
 
     install_backend_deps()
     install_frontend_deps()

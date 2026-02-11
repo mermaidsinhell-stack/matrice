@@ -53,26 +53,28 @@ def find_comfyui():
     return None
 
 
-def start_comfyui(comfyui_path, port=8188):
+def start_comfyui(comfyui_path, port=8188, lowvram=False):
     """Start ComfyUI in headless mode (no browser auto-open)."""
     print(f"[Matrice] Starting ComfyUI (headless) on port {port}...")
     print(f"[Matrice] ComfyUI path: {comfyui_path}")
+    if lowvram:
+        print("[Matrice] Low VRAM mode enabled")
 
     env = os.environ.copy()
     # Ensure ComfyUI uses its own model/output dirs
     env["COMFYUI_PATH"] = comfyui_path
 
-    return subprocess.Popen(
-        [
-            sys.executable, "main.py",
-            "--listen", "127.0.0.1",
-            "--port", str(port),
-            "--dont-print-server",
-            "--preview-method", "latent2rgb",
-        ],
-        cwd=comfyui_path,
-        env=env,
-    )
+    cmd = [
+        sys.executable, "main.py",
+        "--listen", "127.0.0.1",
+        "--port", str(port),
+        "--dont-print-server",
+        "--preview-method", "latent2rgb",
+    ]
+    if lowvram:
+        cmd.append("--lowvram")
+
+    return subprocess.Popen(cmd, cwd=comfyui_path, env=env)
 
 
 def wait_for_comfyui(port=8188, timeout=120):
@@ -158,6 +160,8 @@ def main():
                         help="ComfyUI port (default: 8188)")
     parser.add_argument("--build", action="store_true",
                         help="Use production build instead of dev server")
+    parser.add_argument("--lowvram", action="store_true",
+                        help="Pass --lowvram to ComfyUI for low VRAM GPUs")
     args = parser.parse_args()
 
     # Determine what to start
@@ -183,7 +187,7 @@ def main():
                 print("[Matrice] Or use --no-comfyui if ComfyUI is already running.")
                 sys.exit(1)
 
-            processes.append(start_comfyui(comfyui_path, args.comfyui_port))
+            processes.append(start_comfyui(comfyui_path, args.comfyui_port, lowvram=args.lowvram))
             if not wait_for_comfyui(args.comfyui_port):
                 print("[Matrice] Continuing anyway — ComfyUI may still be loading...")
         else:

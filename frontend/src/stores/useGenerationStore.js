@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DEFAULT_GEN_CONFIG, DEFAULT_LORA } from '../utils/constants';
+import { DEFAULT_GEN_CONFIG, DEFAULT_LORA, PERFORMANCE_PRESETS } from '../utils/constants';
 import { clampFloat } from '../utils/imageUtils';
 
 const useGenerationStore = create(
@@ -15,6 +15,10 @@ const useGenerationStore = create(
 
       // LoRAs
       loras: [{ ...DEFAULT_LORA }],
+
+      // Silent auto-LoRAs injected by performance presets (not shown in UI)
+      _activeAutoLoras: [],
+      setActiveAutoLoras: (loras) => set({ _activeAutoLoras: loras || [] }),
 
       // Image prompting
       img2img: { enabled: false, image: null, denoise: 0.75 },
@@ -61,7 +65,8 @@ const useGenerationStore = create(
       // Build the payload for the backend
       buildPayload: (seedOverride) => {
         const s = get();
-        const activeLoras = s.loras
+        // User-visible LoRAs
+        const userLoras = s.loras
           .filter((l) => l.name && l.name !== 'None')
           .map((l) => ({
             name: l.name,
@@ -70,6 +75,13 @@ const useGenerationStore = create(
             ...(l.doubleBlocks ? { doubleBlocks: l.doubleBlocks } : {}),
             ...(l.singleBlocks ? { singleBlocks: l.singleBlocks } : {}),
           }));
+        // Silently injected auto-LoRAs from performance presets
+        const autoLoras = (s._activeAutoLoras || []).map((l) => ({
+          name: l.name,
+          strengthModel: l.strengthModel,
+          strengthClip: l.strengthClip,
+        }));
+        const activeLoras = [...autoLoras, ...userLoras];
 
         return {
           prompt: s.prompt,
@@ -156,6 +168,7 @@ const useGenerationStore = create(
         seedInput: '',
         currentSeed: null,
         loras: [{ ...DEFAULT_LORA }],
+        _activeAutoLoras: [],
         img2img: { enabled: false, image: null, denoise: 0.75 },
         faceSwap: { enabled: false, image: null, fidelity: 0.8 },
         characterRef: { enabled: false, images: [null, null, null, null], strength: 0.8, endPercent: 0.9, model: '', startPercent: 0, noise: 0 },

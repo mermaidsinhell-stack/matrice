@@ -86,6 +86,45 @@ const useQueueStore = create((set, get) => ({
     ),
   })),
 
+  // Mark job as downloading a LoRA
+  setJobDownloading: (jobId, filename, sizeLabel) => set((s) => ({
+    queue: s.queue.map((item) =>
+      item.id === jobId
+        ? {
+            ...item,
+            status: 'downloading',
+            downloadFilename: filename,
+            downloadProgress: 0,
+            downloadSizeLabel: sizeLabel,
+          }
+        : item
+    ),
+  })),
+
+  // Update download progress
+  updateJobDownloadProgress: (jobId, percent) => set((s) => ({
+    queue: s.queue.map((item) =>
+      item.id === jobId
+        ? { ...item, downloadProgress: percent }
+        : item
+    ),
+  })),
+
+  // Clear downloading state back to queued
+  clearJobDownloading: (jobId) => set((s) => ({
+    queue: s.queue.map((item) =>
+      item.id === jobId
+        ? {
+            ...item,
+            status: 'queued',
+            downloadFilename: undefined,
+            downloadProgress: undefined,
+            downloadSizeLabel: undefined,
+          }
+        : item
+    ),
+  })),
+
   // Remove a job from the queue
   removeJob: (jobId) => set((s) => {
     const newQueue = s.queue.filter((item) => item.id !== jobId);

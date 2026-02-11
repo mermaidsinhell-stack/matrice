@@ -78,3 +78,19 @@ export const DEFAULT_LORA = {
 export const LATENT_UPSCALE_METHODS = [
   "nearest-exact", "bilinear", "area", "bicubic", "bislerp",
 ];
+
+// Performance presets — single source of truth for preset buttons
+// autoLoras are injected silently into the payload (invisible to the user)
+export const PERFORMANCE_PRESETS = {
+  Lightning:        { steps: 4,  cfg: 1.0, sampler: 'euler', scheduler: 'simple' },
+  Speed:            { steps: 20, cfg: 3.5, sampler: 'euler', scheduler: 'simple' },
+  Quality:          { steps: 40, cfg: 7.0, sampler: 'euler', scheduler: 'normal' },
+  'Flux Lightning': {
+    steps: 4, cfg: 1.0, sampler: 'euler', scheduler: 'simple',
+    autoLoras: [{ name: 'flux1-turbo-alpha.safetensors', strengthModel: 1.0, strengthClip: 1.0 }],
+  },
+  'Flux Speed': {
+    steps: 8, cfg: 1.0, sampler: 'euler', scheduler: 'simple',
+    autoLoras: [{ name: 'Hyper-FLUX.1-dev-8steps-lora.safetensors', strengthModel: 0.125, strengthClip: 0.125 }],
+  },
+};

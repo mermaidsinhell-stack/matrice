@@ -3,7 +3,7 @@ import CustomDropdown from '../ui/CustomDropdown';
 import StyledSlider from '../ui/StyledSlider';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import SeedInput from '../ui/SeedInput';
-import { LATENT_UPSCALE_METHODS } from '../../utils/constants';
+import { LATENT_UPSCALE_METHODS, PERFORMANCE_PRESETS } from '../../utils/constants';
 
 const isGgufModel = (name) => name?.toLowerCase?.()?.endsWith('.gguf');
 
@@ -45,9 +45,9 @@ const ModelCard = ({
 
     {/* Performance Toggle */}
     <div className="mb-6">
-      <div className="flex bg-[#FAFAFA] p-1 border border-[#E5E5E5] w-fit">
-        {['Lightning', 'Speed', 'Quality'].map((mode) => (
-          <button key={mode} onClick={() => onPerformanceChange(mode)} className={`px-4 py-2 text-[10px] font-bold font-geo-sans uppercase tracking-widest transition-all ${genConfig.performance === mode ? 'bg-white text-[#E84E36] shadow-sm' : 'text-[#888] hover:text-[#1A1917]'}`}>{mode}</button>
+      <div className="flex flex-wrap bg-[#FAFAFA] p-1 border border-[#E5E5E5] w-fit">
+        {Object.keys(PERFORMANCE_PRESETS).map((mode) => (
+          <button key={mode} onClick={() => onPerformanceChange(mode)} className={`px-3 py-2 text-[10px] font-bold font-geo-sans uppercase tracking-widest transition-all whitespace-nowrap ${genConfig.performance === mode ? 'bg-white text-[#E84E36] shadow-sm' : 'text-[#888] hover:text-[#1A1917]'}`}>{mode}</button>
         ))}
       </div>
     </div>

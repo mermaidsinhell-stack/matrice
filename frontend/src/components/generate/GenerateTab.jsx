@@ -19,6 +19,7 @@ import { handleFileUploadToState } from '../../utils/imageUtils';
 import { clampFloat } from '../../utils/imageUtils';
 import { api } from '../../api';
 import useToastStore from '../../stores/useToastStore';
+import { PERFORMANCE_PRESETS } from '../../utils/constants';
 
 const GenerateTab = () => {
   // --- Stores ---
@@ -100,8 +101,11 @@ const GenerateTab = () => {
   }, []);
 
   const handlePerformanceChange = useCallback((mode) => {
-    const presets = { Lightning: { steps: 4, cfg: 1.0 }, Speed: { steps: 20, cfg: 3.5 }, Quality: { steps: 40, cfg: 7.0 } };
-    gen.updateConfig({ performance: mode, ...presets[mode] });
+    const preset = PERFORMANCE_PRESETS[mode];
+    if (!preset) return;
+    const { autoLoras, ...config } = preset;
+    gen.updateConfig({ performance: mode, ...config });
+    gen.setActiveAutoLoras(autoLoras || []);
   }, [gen]);
 
   // --- File upload helpers ---
@@ -201,6 +205,22 @@ const GenerateTab = () => {
               <div className="w-full h-full flex flex-col items-center justify-center animate-pulse">
                 <Loader2 size={48} className="text-[#E84E36] animate-spin mb-4" />
                 <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">Waiting in Queue...</span>
+              </div>
+            )}
+
+            {activeViewItem && activeViewItem.status === 'downloading' && (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-pulse">
+                <Download size={48} className="text-[#E84E36]" />
+                <span className="font-geo-sans text-sm font-bold uppercase tracking-widest text-[#1A1917]">Downloading Required Model...</span>
+                <div className="w-64">
+                  <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#E84E36] transition-all duration-300 ease-out rounded-full" style={{ width: `${activeViewItem.downloadProgress || 0}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="font-serif-display italic text-xs text-[#888]">{activeViewItem.downloadSizeLabel}</span>
+                    <span className="font-mono text-xs text-[#888]">{Math.round(activeViewItem.downloadProgress || 0)}%</span>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -16,6 +16,9 @@ export default function useWebSocket() {
   const updateJobPreview = useQueueStore((s) => s.updateJobPreview);
   const completeJob = useQueueStore((s) => s.completeJob);
   const failJob = useQueueStore((s) => s.failJob);
+  const setJobDownloading = useQueueStore((s) => s.setJobDownloading);
+  const updateJobDownloadProgress = useQueueStore((s) => s.updateJobDownloadProgress);
+  const clearJobDownloading = useQueueStore((s) => s.clearJobDownloading);
   const setComfyuiConnected = useUIStore((s) => s.setComfyuiConnected);
 
   const connect = useCallback(() => {
@@ -58,6 +61,28 @@ export default function useWebSocket() {
               failJob(msg.jobId, msg.message);
               useToastStore.getState().error('Generation Failed', msg.message || 'An error occurred during generation');
               break;
+            case 'lora_download': {
+              switch (msg.status) {
+                case 'started':
+                  setJobDownloading(msg.jobId, msg.filename, msg.sizeLabel);
+                  useToastStore.getState().info('Downloading Model', msg.description + ' (' + msg.sizeLabel + ')');
+                  break;
+                case 'progress':
+                  updateJobDownloadProgress(msg.jobId, msg.percent);
+                  break;
+                case 'complete':
+                  clearJobDownloading(msg.jobId);
+                  useToastStore.getState().success('Download Complete', 'Model ready');
+                  break;
+                case 'failed':
+                  failJob(msg.jobId, msg.error);
+                  useToastStore.getState().error('Download Failed', msg.error);
+                  break;
+                default:
+                  break;
+              }
+              break;
+            }
             case 'queue_status':
               // Could update UI with queue remaining count
               break;
@@ -85,7 +110,7 @@ export default function useWebSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY);
     }
-  }, [setWsConnected, setComfyuiConnected, updateJobProgress, updateJobPreview, completeJob, failJob]);
+  }, [setWsConnected, setComfyuiConnected, updateJobProgress, updateJobPreview, completeJob, failJob, setJobDownloading, updateJobDownloadProgress, clearJobDownloading]);
 
   useEffect(() => {
     connect();
