@@ -1,0 +1,164 @@
+import { create } from 'zustand';
+import { DEFAULT_GEN_CONFIG, DEFAULT_LORA } from '../utils/constants';
+import { clampFloat } from '../utils/imageUtils';
+
+const useGenerationStore = create((set, get) => ({
+  // Core generation config
+  ...DEFAULT_GEN_CONFIG,
+
+  // Seed state
+  seedInput: '',
+  currentSeed: null,
+
+  // LoRAs
+  loras: [{ ...DEFAULT_LORA }],
+
+  // Image prompting
+  img2img: { enabled: false, image: null, denoise: 0.75 },
+  faceSwap: { enabled: false, image: null, fidelity: 0.8 },
+  characterRef: { enabled: false, images: [null, null, null, null], strength: 0.8, endPercent: 0.9, model: '', startPercent: 0, noise: 0 },
+  styleRef: { enabled: false, image: null, strength: 0.6, model: '', startPercent: 0, endPercent: 1.0, noise: 0 },
+  controlNet: { enabled: false, image: null, preprocessor: 'canny', model: '', strength: 1.0, startPercent: 0, endPercent: 0.6 },
+
+  // --- Actions ---
+
+  updateConfig: (updates) => set((state) => ({ ...state, ...updates })),
+
+  setSeedInput: (v) => set({ seedInput: v }),
+  setCurrentSeed: (v) => set({ currentSeed: v }),
+  randomizeSeed: () => {
+    const seed = Math.floor(Math.random() * 2147483647);
+    set({ seedInput: String(seed), currentSeed: seed });
+    return seed;
+  },
+
+  // LoRA management
+  addLora: () => set((s) => ({ loras: [...s.loras, { ...DEFAULT_LORA }] })),
+  removeLora: (index) => set((s) => {
+    const next = s.loras.filter((_, i) => i !== index);
+    return { loras: next.length > 0 ? next : [{ ...DEFAULT_LORA }] };
+  }),
+  updateLora: (index, updates) => set((s) => ({
+    loras: s.loras.map((l, i) => i === index ? { ...l, ...updates } : l),
+  })),
+
+  // Image prompting
+  updateImg2img: (updates) => set((s) => ({ img2img: { ...s.img2img, ...updates } })),
+  updateFaceSwap: (updates) => set((s) => ({ faceSwap: { ...s.faceSwap, ...updates } })),
+  updateCharacterRef: (updates) => set((s) => ({ characterRef: { ...s.characterRef, ...updates } })),
+  updateStyleRef: (updates) => set((s) => ({ styleRef: { ...s.styleRef, ...updates } })),
+  updateControlNet: (updates) => set((s) => ({ controlNet: { ...s.controlNet, ...updates } })),
+
+  setCharacterImage: (index, image) => set((s) => {
+    const images = [...s.characterRef.images];
+    images[index] = image;
+    return { characterRef: { ...s.characterRef, images } };
+  }),
+
+  // Build the payload for the backend
+  buildPayload: (seedOverride) => {
+    const s = get();
+    const activeLoras = s.loras
+      .filter((l) => l.name && l.name !== 'None')
+      .map((l) => ({
+        name: l.name,
+        strengthModel: clampFloat(l.strengthModel, -2.0, 2.0, 1.0),
+        strengthClip: clampFloat(l.strengthClip, -2.0, 2.0, 1.0),
+        ...(l.doubleBlocks ? { doubleBlocks: l.doubleBlocks } : {}),
+        ...(l.singleBlocks ? { singleBlocks: l.singleBlocks } : {}),
+      }));
+
+    return {
+      prompt: s.prompt,
+      negativePrompt: s.negativePrompt,
+      model: s.model,
+      vae: s.vae,
+      clipModel1: s.clipModel1,
+      clipModel2: s.clipModel2,
+      clipType: s.clipType,
+      width: s.width,
+      height: s.height,
+      steps: s.steps,
+      cfg: s.cfg,
+      sampler: s.sampler,
+      scheduler: s.scheduler,
+      seed: seedOverride,
+      clipSkip: s.clipSkip,
+      batchSize: s.batchSize,
+      performance: s.performance,
+      loras: activeLoras,
+      hiresFix: s.hiresFix
+        ? {
+            enabled: true,
+            scale: s.hiresScale,
+            steps: s.hiresSteps,
+            denoise: s.hiresDenoise,
+            upscaleMethod: s.hiresUpscaleMethod,
+          }
+        : { enabled: false },
+      img2img: s.img2img.enabled && s.img2img.image
+        ? { enabled: true, image: s.img2img.image, denoise: s.img2img.denoise }
+        : { enabled: false },
+      faceSwap: s.faceSwap.enabled && s.faceSwap.image
+        ? { enabled: true, image: s.faceSwap.image, fidelity: s.faceSwap.fidelity }
+        : { enabled: false },
+      characterRef: s.characterRef.enabled && s.characterRef.images.some(Boolean)
+        ? {
+            enabled: true,
+            images: s.characterRef.images.filter(Boolean),
+            strength: s.characterRef.strength,
+            endPercent: s.characterRef.endPercent,
+            startPercent: s.characterRef.startPercent,
+            model: s.characterRef.model,
+            noise: s.characterRef.noise,
+          }
+        : { enabled: false },
+      styleRef: s.styleRef.enabled && s.styleRef.image
+        ? {
+            enabled: true,
+            image: s.styleRef.image,
+            strength: s.styleRef.strength,
+            startPercent: s.styleRef.startPercent,
+            endPercent: s.styleRef.endPercent,
+            model: s.styleRef.model,
+            noise: s.styleRef.noise,
+          }
+        : { enabled: false },
+      controlNets: s.controlNet.enabled && s.controlNet.image
+        ? [{
+            enabled: true,
+            image: s.controlNet.image,
+            preprocessor: s.controlNet.preprocessor,
+            model: s.controlNet.model,
+            strength: s.controlNet.strength,
+            startPercent: s.controlNet.startPercent,
+            endPercent: s.controlNet.endPercent,
+          }]
+        : [],
+    };
+  },
+
+  // Load preset
+  loadPreset: (preset) => set((s) => ({
+    ...DEFAULT_GEN_CONFIG,
+    ...preset.config,
+    loras: preset.loras?.length > 0
+      ? preset.loras.map((l) => ({ ...DEFAULT_LORA, ...l }))
+      : [{ ...DEFAULT_LORA }],
+  })),
+
+  // Reset to defaults
+  reset: () => set({
+    ...DEFAULT_GEN_CONFIG,
+    seedInput: '',
+    currentSeed: null,
+    loras: [{ ...DEFAULT_LORA }],
+    img2img: { enabled: false, image: null, denoise: 0.75 },
+    faceSwap: { enabled: false, image: null, fidelity: 0.8 },
+    characterRef: { enabled: false, images: [null, null, null, null], strength: 0.8, endPercent: 0.9, model: '', startPercent: 0, noise: 0 },
+    styleRef: { enabled: false, image: null, strength: 0.6, model: '', startPercent: 0, endPercent: 1.0, noise: 0 },
+    controlNet: { enabled: false, image: null, preprocessor: 'canny', model: '', strength: 1.0, startPercent: 0, endPercent: 0.6 },
+  }),
+}));
+
+export default useGenerationStore;

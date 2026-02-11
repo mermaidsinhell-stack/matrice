@@ -1,0 +1,41 @@
+# Dependencies
+frontend/node_modules/
+backend/__pycache__/
+backend/**/__pycache__/
+
+# Build output
+frontend/dist/
+
+# Bundled ComfyUI (installed by install.py — not our code)
+comfyui/
+
+# Environment
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+venv/
+.venv/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Worktrees
+.worktrees
