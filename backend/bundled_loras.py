@@ -13,6 +13,7 @@ a real-time progress bar instead of a mysterious hang.
 import asyncio
 import logging
 import os
+import threading
 import urllib.request
 import urllib.error
 
@@ -36,8 +37,18 @@ BUNDLED_LORAS = {
     },
 }
 
-# Track in-progress downloads to avoid duplicate concurrent downloads
+# Bug #7: Thread-safe lock management for concurrent downloads
+# _dict_lock protects access to the _download_locks dict itself
+_dict_lock = threading.Lock()
 _download_locks: dict[str, asyncio.Lock] = {}
+
+
+def _get_lock(filename: str) -> asyncio.Lock:
+    """Get or create an asyncio.Lock for a specific LoRA filename (thread-safe)."""
+    with _dict_lock:
+        if filename not in _download_locks:
+            _download_locks[filename] = asyncio.Lock()
+        return _download_locks[filename]
 
 
 def _get_loras_dir() -> str:
@@ -55,11 +66,11 @@ def _download_file_sync(url: str, dest_path: str, description: str = "", progres
 
     progress_callback(percent: float) is called every ~5 MB with download progress.
     """
+    tmp_path = dest_path + ".tmp"
     try:
         logger.info("Downloading bundled LoRA: %s (%s)", description, url)
         req = urllib.request.Request(url, headers={"User-Agent": "Matrice-Backend/1.0"})
 
-        tmp_path = dest_path + ".tmp"
         with urllib.request.urlopen(req) as response:
             total = int(response.headers.get("Content-Length", 0))
             downloaded = 0
@@ -80,7 +91,10 @@ def _download_file_sync(url: str, dest_path: str, description: str = "", progres
                             last_reported = downloaded
                             logger.info("  [%s] %.1f%% downloaded", description, pct)
                             if progress_callback:
-                                progress_callback(round(pct, 1))
+                                try:
+                                    progress_callback(round(pct, 1))
+                                except Exception as e:
+                                    logger.debug("Progress callback error: %s", e)
 
         os.replace(tmp_path, dest_path)
         logger.info("Downloaded: %s", os.path.basename(dest_path))
@@ -88,10 +102,15 @@ def _download_file_sync(url: str, dest_path: str, description: str = "", progres
 
     except (urllib.error.URLError, OSError) as e:
         logger.error("Failed to download %s: %s", description, e)
-        tmp_path = dest_path + ".tmp"
-        if os.path.isfile(tmp_path):
-            os.remove(tmp_path)
         return False
+
+    finally:
+        # Bug #8: Always attempt .tmp cleanup in finally block (safe even if file doesn't exist)
+        try:
+            if os.path.isfile(tmp_path):
+                os.remove(tmp_path)
+        except OSError as e:
+            logger.warning("Could not clean up temp file %s: %s", tmp_path, e)
 
 
 async def _refresh_comfyui_lora_list():
@@ -140,11 +159,10 @@ async def ensure_bundled_lora(filename: str, ws_manager=None, job_id: str = "") 
     if _is_lora_available(filename):
         return True
 
-    # Get or create a lock for this specific LoRA
-    if filename not in _download_locks:
-        _download_locks[filename] = asyncio.Lock()
+    # Bug #7: Thread-safe lock acquisition
+    lock = _get_lock(filename)
 
-    async with _download_locks[filename]:
+    async with lock:
         # Double-check after acquiring lock (another request may have finished download)
         if _is_lora_available(filename):
             return True

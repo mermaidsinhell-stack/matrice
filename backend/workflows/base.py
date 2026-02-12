@@ -38,7 +38,7 @@ class WorkflowBuilder:
         return dict(self._nodes)
 
 
-def add_checkpoint_loader(wb: WorkflowBuilder, model_name: str) -> tuple[str, str, str]:
+def add_checkpoint_loader(wb: WorkflowBuilder, model_name: str) -> tuple[str, str, str, str]:
     """Add CheckpointLoaderSimple. Returns (node_id, model_output, clip_output, vae_output)."""
     node_id = wb.add_node("CheckpointLoaderSimple", {
         "ckpt_name": model_name,

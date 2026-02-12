@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+const COMPLETED_JOB_TTL = 30 * 60 * 1000; // 30 minutes — auto-remove completed/failed jobs
+
 const useQueueStore = create((set, get) => ({
   queue: [],
   selectedQueueId: null,
@@ -81,7 +83,7 @@ const useQueueStore = create((set, get) => ({
   failJob: (jobId, message) => set((s) => ({
     queue: s.queue.map((item) =>
       item.id === jobId
-        ? { ...item, status: 'error', errorMessage: message }
+        ? { ...item, status: 'error', errorMessage: message, endTime: Date.now() }
         : item
     ),
   })),
@@ -138,6 +140,26 @@ const useQueueStore = create((set, get) => ({
   clearCompleted: () => set((s) => ({
     queue: s.queue.filter((item) => item.status !== 'complete' && item.status !== 'error'),
   })),
+
+  // Bug #12: Auto-cleanup old completed/failed jobs to prevent memory bloat
+  cleanupStaleJobs: () => set((s) => {
+    const now = Date.now();
+    const cleaned = s.queue.filter((item) => {
+      if ((item.status === 'complete' || item.status === 'error') && item.endTime) {
+        return now - item.endTime < COMPLETED_JOB_TTL;
+      }
+      return true; // Keep active jobs
+    });
+    if (cleaned.length === s.queue.length) return s; // No change
+    // If selected item was removed, select the last remaining item
+    const selectedStillExists = cleaned.some((item) => item.id === s.selectedQueueId);
+    return {
+      queue: cleaned,
+      selectedQueueId: selectedStillExists
+        ? s.selectedQueueId
+        : (cleaned.length > 0 ? cleaned[cleaned.length - 1].id : null),
+    };
+  }),
 
   // WebSocket connection status
   setWsConnected: (v) => set({ wsConnected: v }),

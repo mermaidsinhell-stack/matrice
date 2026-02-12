@@ -70,6 +70,7 @@ def start_comfyui(comfyui_path, port=8188, lowvram=False):
         "--port", str(port),
         "--dont-print-server",
         "--preview-method", "latent2rgb",
+        "--fp16-vae",
     ]
     if lowvram:
         cmd.append("--lowvram")

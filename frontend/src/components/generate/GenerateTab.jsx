@@ -39,7 +39,13 @@ const GenerateTab = () => {
 
   // --- Handlers ---
   const handleGenerate = useCallback(async () => {
-    const seed = gen.seedInput ? parseInt(gen.seedInput) : gen.randomizeSeed();
+    // If user typed/locked a specific seed, reuse it. Otherwise generate a fresh
+    // random seed each click — do NOT write it back to seedInput so it stays
+    // empty ("Random" placeholder). This prevents ComfyUI from caching the
+    // result and returning the old image on subsequent clicks.
+    const seed = gen.seedInput
+      ? parseInt(gen.seedInput)
+      : Math.floor(Math.random() * 2147483647);
     for (let i = 0; i < gen.batchSize; i++) {
       const batchSeed = gen.batchSeedMode === 'increment' ? seed + i : Math.floor(Math.random() * 2147483647);
       const payload = gen.buildPayload(batchSeed);
@@ -78,11 +84,13 @@ const GenerateTab = () => {
     }
   }, [gen, queueStore]);
 
+  // Bug #11: Read fresh activeViewItem inside callback to avoid stale closure
   const saveSeed = useCallback(() => {
-    if (activeViewItem?.seed) {
-      gen.setSeedInput(String(activeViewItem.seed));
+    const item = queueStore.getActiveViewItem();
+    if (item?.seed) {
+      gen.setSeedInput(String(item.seed));
     }
-  }, [activeViewItem, gen]);
+  }, [queueStore, gen]);
 
   const handleDownload = useCallback((url) => {
     if (!url) return;

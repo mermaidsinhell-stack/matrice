@@ -34,9 +34,9 @@ const useGenerationStore = create(
       setSeedInput: (v) => set({ seedInput: v }),
       setCurrentSeed: (v) => set({ currentSeed: v }),
       randomizeSeed: () => {
-        const seed = Math.floor(Math.random() * 2147483647);
-        set({ seedInput: String(seed), currentSeed: seed });
-        return seed;
+        // Clear seedInput → "Random" mode. Each generation will pick a fresh
+        // random seed without writing it back, preventing ComfyUI cache hits.
+        set({ seedInput: '', currentSeed: null });
       },
 
       // LoRA management
@@ -178,6 +178,14 @@ const useGenerationStore = create(
     }),
     {
       name: 'matrice-generation',
+      // On hydration, strip seedInput so it always starts empty ("Random" mode).
+      // Old localStorage may still have it from before this fix.
+      merge: (persistedState, currentState) => {
+        // Destructure out seed fields so they never enter the merged state —
+        // seedInput must always start empty ("Random" mode) on page load.
+        const { seedInput, currentSeed, ...cleanPersisted } = persistedState || {};
+        return { ...currentState, ...cleanPersisted };
+      },
       partialize: (state) => ({
         // Core generation settings
         prompt: state.prompt,
@@ -196,8 +204,10 @@ const useGenerationStore = create(
         clipModel1: state.clipModel1,
         clipModel2: state.clipModel2,
         clipType: state.clipType,
-        // Seed input (user-typed value), NOT currentSeed
-        seedInput: state.seedInput,
+        // NOTE: seedInput is intentionally NOT persisted. An empty seed input
+        // means "random seed each generation" — persisting it would cause
+        // ComfyUI to cache identical workflows and return the old image.
+        // Users lock a specific seed via the Lock button or typing one.
         // HiresFix settings
         hiresFix: state.hiresFix,
         hiresScale: state.hiresScale,
